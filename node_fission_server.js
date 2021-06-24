@@ -3,14 +3,14 @@
 //  illuspas[a]msn.com
 //  Copyright (c) 2020 Nodemedia. All rights reserved.
 //
-const Logger = require('./node_core_logger');
+const Logger = require("./node_core_logger");
 
-const NodeFissionSession = require('./node_fission_session');
-const context = require('./node_core_ctx');
-const { getFFmpegVersion, getFFmpegUrl } = require('./node_core_utils');
-const fs = require('fs');
-const _ = require('lodash');
-const mkdirp = require('mkdirp');
+const NodeFissionSession = require("./node_fission_session");
+const context = require("./node_core_ctx");
+const { getFFmpegVersion, getFFmpegUrl } = require("./node_core_utils");
+const fs = require("fs");
+const _ = require("lodash");
+const mkdirp = require("mkdirp");
 
 class NodeFissionServer {
   constructor(config) {
@@ -23,27 +23,38 @@ class NodeFissionServer {
       mkdirp.sync(this.config.http.mediaroot);
       fs.accessSync(this.config.http.mediaroot, fs.constants.W_OK);
     } catch (error) {
-      Logger.error(`Node Media Fission Server startup failed. MediaRoot:${this.config.http.mediaroot} cannot be written.`);
+      Logger.error(
+        `Node Media Fission Server startup failed. MediaRoot:${this.config.http.mediaroot} cannot be written.`
+      );
       return;
     }
 
     try {
       fs.accessSync(this.config.fission.ffmpeg, fs.constants.X_OK);
     } catch (error) {
-      Logger.error(`Node Media Fission Server startup failed. ffmpeg:${this.config.fission.ffmpeg} cannot be executed.`);
+      Logger.error(
+        `Node Media Fission Server startup failed. ffmpeg:${this.config.fission.ffmpeg} cannot be executed.`
+      );
       return;
     }
 
     let version = await getFFmpegVersion(this.config.fission.ffmpeg);
-    if (version === '' || parseInt(version.split('.')[0]) < 4) {
-      Logger.error(`Node Media Fission Server startup failed. ffmpeg requires version 4.0.0 above`);
-      Logger.error('Download the latest ffmpeg static program:', getFFmpegUrl());
+    if (version === "" || parseInt(version.split(".")[0]) < 4) {
+      Logger.error(
+        `Node Media Fission Server startup failed. ffmpeg requires version 4.0.0 above`
+      );
+      Logger.error(
+        "Download the latest ffmpeg static program:",
+        getFFmpegUrl()
+      );
       return;
     }
 
-    context.nodeEvent.on('postPublish', this.onPostPublish.bind(this));
-    context.nodeEvent.on('donePublish', this.onDonePublish.bind(this));
-    Logger.log(`Node Media Fission Server started, MediaRoot: ${this.config.http.mediaroot}, ffmpeg version: ${version}`);
+    context.nodeEvent.on("postPublish", this.onPostPublish.bind(this));
+    context.nodeEvent.on("donePublish", this.onDonePublish.bind(this));
+    Logger.log(
+      `Node Media Fission Server started, MediaRoot: ${this.config.http.mediaroot}, ffmpeg version: ${version}`
+    );
   }
 
   onPostPublish(id, streamPath, args) {
@@ -52,9 +63,12 @@ class NodeFissionServer {
     for (let task of this.config.fission.tasks) {
       regRes = /(.*)\/(.*)/gi.exec(task.rule);
       let [ruleApp, ruleName] = _.slice(regRes, 1);
-      if ((app === ruleApp || ruleApp === "*") && (name === ruleName || ruleName === "*")) {
+      if (
+        (app === ruleApp || ruleApp === "*") &&
+        (name === ruleName || ruleName === "*")
+      ) {
         let s = context.sessions.get(id);
-        if (s.isLocal && name.split('_')[1]) {
+        if (s.isLocal && name.split("_")[1]) {
           continue;
         }
         let conf = task;
@@ -64,10 +78,11 @@ class NodeFissionServer {
         conf.streamPath = streamPath;
         conf.streamApp = app;
         conf.streamName = name;
+
         conf.args = args;
         let session = new NodeFissionSession(conf);
         this.fissionSessions.set(id, session);
-        session.on('end', () => {
+        session.on("end", () => {
           this.fissionSessions.delete(id);
         });
         session.run();

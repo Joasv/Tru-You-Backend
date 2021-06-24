@@ -1,7 +1,9 @@
 const NodeMediaServer = require("./");
 var HashMap = require("hashmap");
 var net = require("net");
+const Logger = require("./node_core_logger");
 const { Console } = require("console");
+const { has } = require("lodash");
 const config = {
   rtmp: {
     port: 1935,
@@ -119,17 +121,24 @@ var server = net.createServer(function (socket) {
 
     let keyValues = stringBuffer.split("}");
     keyValues.every((value) => {
+      let sessionBuffer = null;
       let keyValuePair = value.substring(1).split(",");
       if (keyValuePair[1] == undefined) return false;
       if (keyValuePair[0] === "key") {
-        console.log("public key retrieved [from user] " + keyValuePair[1]);
-        keyValueEntries.set("key", keyValuePair[1]);
+        Logger.log("public key retrieved [from user] " + keyValuePair[1]);
+        Logger.log("new key making sessionBuffer");
+        var newSessionBuffer = new HashMap();
+        keyValueEntries.set(keyValuePair[1].toString(), newSessionBuffer);
+      } else {
+        sessionBuffer = keyValueEntries.get(keyValuePair[0].toString());
+        sessionBuffer.set(keyValuePair[1], keyValuePair[2]);
       }
-      keyValueEntries.set(keyValuePair[0], keyValuePair[1]);
       return true;
     });
   });
 });
+
+// {streamName, {timestamp , sig}}
 
 server.listen(1936, "192.168.2.4");
 module.exports = {

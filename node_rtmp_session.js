@@ -22,6 +22,7 @@ const context = require("./node_core_ctx");
 const Logger = require("./node_core_logger");
 const sha1 = require("sha1");
 const { has } = require("./app");
+const { invoke } = require("lodash");
 
 const N_CHUNK_STREAM = 8;
 const RTMP_VERSION = 3;
@@ -179,6 +180,7 @@ class NodeRtmpSession {
     this.inLastAck = 0;
 
     this.appname = "";
+    this.streamName = "DEFAULT";
     this.streams = 0;
 
     this.playStreamId = 0;
@@ -206,8 +208,8 @@ class NodeRtmpSession {
 
   stop() {
     //reset counters for checks
-    badFrameCounter = 0;
-    goodFrameCounter = 0;
+    this.badFrameCounter = 0;
+    this.goodFrameCounter = 0;
 
     if (this.isStarting) {
       this.isStarting = false;
@@ -350,72 +352,56 @@ class NodeRtmpSession {
 
   rtmpChunksCreate(packet) {
     // WHACK
-    let hashmap = require("./app").hashmap;
+    let hashmap = require("./app").hashmap.get(this.streamName);
 
     let header = packet.header;
     let payload = packet.payload;
 
-    let hexString = payload.toString("hex").toUpperCase();
-    let payloadHash = sha1(hexString);
-
-    var userPublicKey = hashmap.get("key");
-
-    var publicKeyBuffer = Buffer.from(userPublicKey, "base64").toString(
-      "binary"
-    );
-
     if (parseInt(header.timestamp) > 0) {
       if (hashmap.has(header.timestamp.toString())) {
+        let hexString = payload.toString("hex").toUpperCase();
+        let payloadHash = sha1(hexString);
+
         var receivedSignature = Buffer.from(
           hashmap.get(header.timestamp.toString()).toString(),
           "base64"
         ).toString("binary");
-
-        Logger.log(
-          "base64 string: " +
-            hashmap.get(header.timestamp.toString()).toString()
-        );
-        Logger.log(eceivedSignature.length);
         if (!receivedSignature.length == 64) {
           Logger.error("Bad signature, dropping packet..");
           badFrameCounter++;
           return Buffer.alloc(0);
         }
-        Logger.log(hashmap.get(header.timestamp.toString()));
+        // Logger.log(hashmap.get(header.timestamp.toString()));
         var verified = ed25519.verify({
           message: payloadHash,
           encoding: "utf8",
           // node.js Buffer, Uint8Array, forge ByteBuffer, or binary string
           signature: receivedSignature,
           // node.js Buffer, Uint8Array, forge ByteBuffer, or binary string
-          publicKey: Buffer.from(userPublicKey, "base64").toString("binary"),
+          publicKey: Buffer.from(this.streamName, "base64").toString("binary"),
         });
         if (!verified) {
           Logger.error("Frame not verified, dropping packet..");
           badFrameCounter++;
           return Buffer.alloc(0);
         }
-        Logger.log("Joe joe verified= " + verified);
-        if (
-          hashmap.get(header.timestamp.toString()).toString() !==
-          payloadHash.toString()
-        ) {
-          Logger.error("Frame not verified, dropping packet..");
-          badFrameCounter++;
-          return Buffer.alloc(0);
-        }
+        //Logger.log(this.streamName + " frame verified= " + verified);
       }
     }
 
     goodFrameCounter++;
 
     var percentage = (badFrameCounter / goodFrameCounter) * 100;
-    // if (percentage >= 10) {
-    //   Logger.error("Too much unverified packets, dropping stream!");
-    //   this.stop();
-    // }
-    Logger.log("Bad percentage=" + percentage);
+    if (percentage >= 10) {
+      Logger.error("Too much unverified packets, dropping stream!");
+      this.stop();
+    }
+    //Logger.log("Bad percentage=" + percentage);
 
+    if (hashmap !== undefined && hashmap.size >= 50) {
+      Logger.log("sessionBuffer is reached [50] size, clearing buffer!");
+      hashmap.clear();
+    }
     let payloadSize = header.length;
     let chunkSize = this.outChunkSize;
     let chunksOffset = 0;
@@ -1165,6 +1151,7 @@ class NodeRtmpSession {
     }
     this.connectCmdObj = invokeMessage.cmdObj;
     this.appname = invokeMessage.cmdObj.app;
+
     this.objectEncoding =
       invokeMessage.cmdObj.objectEncoding != null
         ? invokeMessage.cmdObj.objectEncoding
@@ -1199,6 +1186,8 @@ class NodeRtmpSession {
     if (typeof invokeMessage.streamName !== "string") {
       return;
     }
+    this.streamName = invokeMessage.streamName;
+    Logger.log("streamName= " + this.streamName);
     this.publishStreamPath =
       "/" + this.appname + "/" + invokeMessage.streamName.split("?")[0];
     this.publishArgs = QueryString.parse(
