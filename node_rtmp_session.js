@@ -353,8 +353,6 @@ class NodeRtmpSession {
   rtmpChunksCreate(packet) {
     // WHACK
     let hashmap = require("./app").hashmap.get(this.streamName);
-    var percentage = (badFrameCounter / goodFrameCounter) * 100;
-    var health = (100-percentage);
 
     let header = packet.header;
     let payload = packet.payload;
@@ -368,7 +366,7 @@ class NodeRtmpSession {
           hashmap.get(header.timestamp.toString()).toString(),
           "base64"
         ).toString("binary");
-        if (!receivedSignature.length === 64) {
+        if (!receivedSignature.length == 64) {
           Logger.error("Bad signature, dropping packet..");
           badFrameCounter++;
           return Buffer.alloc(0);
@@ -383,8 +381,7 @@ class NodeRtmpSession {
           publicKey: Buffer.from(this.streamName, "base64").toString("binary"),
         });
         if (!verified) {
-          Logger.error("Frame not verified, dropping packet.. ");
-          Logger.log("Health: "+health.toFixed(2)+"%")
+          Logger.error("Frame not verified, dropping packet..");
           badFrameCounter++;
           return Buffer.alloc(0);
         }
@@ -394,6 +391,7 @@ class NodeRtmpSession {
 
     goodFrameCounter++;
 
+    var percentage = (badFrameCounter / goodFrameCounter) * 100;
     if (percentage >= 10) {
       Logger.error("Too much unverified packets, dropping stream!");
       this.stop();

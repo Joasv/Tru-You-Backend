@@ -140,7 +140,7 @@ var server = net.createServer(function (socket) {
 
 // {streamName, {timestamp , sig}}
 
-server.listen(1936, "0.0.0.0");
+server.listen(1936, "192.168.2.4");
 module.exports = {
   hashmap: keyValueEntries,
 };

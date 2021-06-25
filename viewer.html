@@ -1,11 +1,11 @@
 <script src="https://cdn.bootcss.com/flv.js/1.5.0/flv.min.js"></script>
-<video id="videoElement" autoplay controls></video>
+<video id="videoElement"></video>
 <script>
   if (flvjs.isSupported()) {
     var videoElement = document.getElementById("videoElement");
     var flvPlayer = flvjs.createPlayer({
       type: "flv",
-      url: "http://localhost:8000/live/VmBR11LN21sCpTfXzeS4Z96CWgrFN0QRwDArkoNrCMk=.flv",
+      url: "http://localhost:8000/live/WjVchzr/D5NAq6YkrnmEpGkpIGD9pqmcoYliEzrRJb8=.flv",
     });
     flvPlayer.attachMediaElement(videoElement);
     flvPlayer.load();
